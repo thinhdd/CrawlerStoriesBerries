@@ -15,10 +15,10 @@ public class Story{
     @GeneratedValue(strategy = GenerationType.AUTO)
     Integer id;
     private String name;
-    @Column(columnDefinition="LONGTEXT")
+    @Column(columnDefinition="text")
     private String shortDes;
     private String thumbnail;
-    @Column(columnDefinition="LONGTEXT")
+    @Column(columnDefinition="text")
     private String content;
     private TypeStory typeStory;
     private String url;

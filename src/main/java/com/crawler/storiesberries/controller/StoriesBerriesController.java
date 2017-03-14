@@ -20,7 +20,7 @@ public class StoriesBerriesController {
     IStoriesBerriesService storiesBerriesService;
 
     @GetMapping("/crawlerAll")
-    public void crawlerAllData() throws IOException {
+    public void crawlerAllData() throws IOException, InterruptedException {
         storiesBerriesService.crawlerAll();
     }
 

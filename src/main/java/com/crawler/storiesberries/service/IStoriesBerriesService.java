@@ -9,7 +9,7 @@ import java.io.IOException;
  * Created by android on 3/4/2017.
  */
 public interface IStoriesBerriesService {
-    public void crawlerAll() throws IOException;
+    public void crawlerAll() throws IOException, InterruptedException;
 
 
     void crawlerOnlyImage(StoriesDTOs storiesDTOs) throws IOException;

@@ -10,6 +10,7 @@ import com.crawler.storiesberries.service.IStoriesBerriesService;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,10 +32,14 @@ public class StoriesBerriesService implements IStoriesBerriesService {
     StoryRepository storyRepository;
 
     @Override
-    public void crawlerAll() throws IOException {
+    public void crawlerAll() throws IOException, InterruptedException {
         Document doc = Jsoup.connect(url).get();
         Elements links = doc.select("h2.title a");
-        Map<String, Story> storyMap= new HashMap<String, Story>();
+        Map<String, Story> storyMap = new HashMap<String, Story>();
+        List<Story> stories = storyRepository.getAllStories();
+        for (Story story : stories) {
+            storyMap.put(story.getUrl(), story);
+        }
         int j = 0;
         for (Element element : links) {
 
@@ -49,58 +54,75 @@ public class StoriesBerriesService implements IStoriesBerriesService {
             int countPage = Integer.parseInt(pageElements.get(pageElements.size() - 2).childNode(0).toString());
 
             for (int page = 1; page < countPage; page++) {
-                String pageUrl = subUrl + "page/" + page;
-                System.out.println("page url " + pageUrl);
-                Document pageDoc = Jsoup.connect(pageUrl).get();
-                Elements elements = pageDoc.select("div.entry-image-inner a[href]");
-                for (Element elementInPage : elements) {
-                    String href = elementInPage.attr("href");
-                    System.out.println("story href " + href);
-                    String title = elementInPage.attr("title");
-                    String thumbnail = elementInPage.select("img").get(0).attr("src");
-                    Document detailStoryDoc = Jsoup.connect(href).get();
-                    String shortDes = detailStoryDoc.select("div.manual-excerpt").get(0).childNode(0).toString();
-                    Elements elementByRegex = detailStoryDoc.select("div[itemprop=articleBody] p");
-                    Story story = new Story();
-                    if(storyMap.containsKey(title))
-                    {
-                        story = storyMap.get(title);
-                        story.getCategories().add(category);
-                        continue;
-                    }
-                    story.setName(title);
-                    story.setThumbnail(thumbnail);
-                    story.setShortDes(shortDes);
-                    if(story.getCategories()==null)
-                    {
-                        story.setCategories(new ArrayList<Category>());
-                    }
-                    story.getCategories().add(category);
-                    storyMap.put(title, story);
-                    StringBuilder content = new StringBuilder();
-                    for (Element dataContent : elementByRegex) {
-                        Elements imgs = dataContent.select("img");
-                        if (imgs.size() == 0) {
-                            if(dataContent.childNodes().size()!=0)
-                            {
-                                String str = dataContent.childNode(0).toString();
-                                content.append(str);
-                            }
-                        } else {
-                            content.append(imgs.get(0).attr("src"));
-                            content.append("@@@");
+                boolean retryPage = false;
+                do {
+                    String pageUrl = subUrl + "page/" + page;
+
+                    System.out.println("page url " + pageUrl);
+                    try {
+                        Document pageDoc = Jsoup.connect(pageUrl).get();
+                        Elements elements = pageDoc.select("div.entry-image-inner a[href]");
+                        for (Element elementInPage : elements) {
+                            Thread.sleep(5000);
+                            String href = elementInPage.attr("href");
+                            System.out.println("story href " + href);
+                            String title = elementInPage.attr("title");
+                            String thumbnail = elementInPage.select("img").get(0).attr("src");
+                            boolean tryStory = false;
+                            do {
+                                try {
+                                    Document detailStoryDoc = Jsoup.connect(href).get();
+                                    String shortDes = detailStoryDoc.select("div.manual-excerpt").get(0).childNode(0).toString();
+                                    Elements elementByRegex = detailStoryDoc.select("div[itemprop=articleBody] p");
+                                    Story story = new Story();
+                                    if (storyMap.containsKey(href)) {
+                                        story = storyMap.get(href);
+                                        story.getCategories().add(category);
+                                        story = storyRepository.save(story);
+                                        storyMap.put(href, story);
+                                        continue;
+                                    }
+                                    story.setUrl(href);
+                                    story.setName(title);
+                                    story.setThumbnail(thumbnail);
+                                    story.setShortDes(shortDes);
+                                    if (story.getCategories() == null) {
+                                        story.setCategories(new ArrayList<Category>());
+                                    }
+                                    story.getCategories().add(category);
+                                    StringBuilder content = new StringBuilder();
+                                    for (Element dataContent : elementByRegex) {
+                                        Elements imgs = dataContent.select("img");
+                                        if (imgs.size() == 0) {
+                                            if (dataContent.childNodes().size() != 0) {
+                                                for (Node node : dataContent.childNodes()) {
+                                                    String str = node.toString();
+                                                    content.append(str);
+                                                }
+                                            }
+                                        } else {
+                                            content.append(imgs.get(0).attr("src"));
+                                            content.append("@@@");
+                                        }
+                                    }
+                                    story.setContent(content.toString());
+                                    story = storyRepository.save(story);
+                                    storyMap.put(title, story);
+                                } catch (Exception e) {
+                                    tryStory = true;
+                                    Thread.sleep(10000);
+                                }
+                            } while (tryStory);
                         }
+                    } catch (Exception e) {
+                        retryPage = true;
+                        Thread.sleep(10000);
                     }
-                    story.setContent(content.toString());
-                }
+                } while (retryPage);
             }
         }
         Collection<Story> values = storyMap.values();
         storyRepository.save(values);
-    }
-
-    public void crawlerDetailStory(String url, String type) {
-
     }
 
     @Override

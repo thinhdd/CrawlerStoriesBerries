@@ -15,10 +15,13 @@ public class Story{
     @GeneratedValue(strategy = GenerationType.AUTO)
     Integer id;
     private String name;
+    @Column(columnDefinition="LONGTEXT")
     private String shortDes;
     private String thumbnail;
+    @Column(columnDefinition="LONGTEXT")
     private String content;
     private TypeStory typeStory;
+    private String url;
     @ManyToMany(cascade = CascadeType.ALL)
     @JoinTable(name = "story_category", joinColumns = @JoinColumn(name = "story_id", referencedColumnName = "id")
             , inverseJoinColumns = @JoinColumn(name = "category_id", referencedColumnName = "id"))
@@ -82,5 +85,13 @@ public class Story{
 
     public void setCategories(List<Category> categories) {
         this.categories = categories;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 }

@@ -108,6 +108,7 @@ public class StoriesBerriesService implements IStoriesBerriesService {
                                     story.setContent(content.toString());
                                     story = storyRepository.save(story);
                                     storyMap.put(title, story);
+                                    tryStory=false;
                                 } catch (Exception e) {
                                     tryStory = true;
                                     Thread.sleep(10000);

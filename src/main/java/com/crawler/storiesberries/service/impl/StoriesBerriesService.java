@@ -1,6 +1,5 @@
 package com.crawler.storiesberries.service.impl;
 
-import com.crawler.storiesberries.TypeStory;
 import com.crawler.storiesberries.dto.StoriesDTOs;
 import com.crawler.storiesberries.model.Category;
 import com.crawler.storiesberries.model.Story;
@@ -46,6 +45,10 @@ public class StoriesBerriesService implements IStoriesBerriesService {
             j += 1;
             String subUrl = element.attr("href");
             String type = element.childNode(0).toString();
+            if(!"Chapter Books and Poems".contains(type))
+            {
+                continue;
+            }
             boolean tryCategory;
             do {
                 try {
@@ -57,8 +60,11 @@ public class StoriesBerriesService implements IStoriesBerriesService {
                         categoryRepository.save(category);
                     }
                     Elements pageElements = subDoc.select("a.page-numbers");
-                    int countPage = Integer.parseInt(pageElements.get(pageElements.size() - 2).childNode(0).toString());
-
+                    int countPage = 1;
+                    if(pageElements.size()!=0)
+                    {
+                        countPage = Integer.parseInt(pageElements.get(pageElements.size() - 2).childNode(0).toString());
+                    }
                     for (int page = 1; page <= countPage; page++) {
                         boolean retryPage;
                         do {
@@ -88,32 +94,13 @@ public class StoriesBerriesService implements IStoriesBerriesService {
                                     do {
                                         try {
                                             Document detailStoryDoc = Jsoup.connect(href).get();
-                                            String shortDes = detailStoryDoc.select("div.manual-excerpt").get(0).childNode(0).toString();
-                                            Elements elementByRegex = detailStoryDoc.select("div[itemprop=articleBody] p");
-                                            story.setUrl(href);
-                                            story.setName(title);
-                                            story.setThumbnail(thumbnail);
-                                            story.setShortDes(shortDes);
-                                            if (story.getCategories() == null) {
-                                                story.setCategories(new ArrayList<Category>());
+                                            prepareBaseStoryData(category, href, title, thumbnail, story, detailStoryDoc);
+                                            if(type.equals("Chapter Books"))
+                                            {
+                                                prepareChapterBooks(story, detailStoryDoc);
+                                            }else {
+                                                prepareCommonStory(story, detailStoryDoc);
                                             }
-                                            story.getCategories().add(category);
-                                            StringBuilder content = new StringBuilder();
-                                            for (Element dataContent : elementByRegex) {
-                                                Elements imgs = dataContent.select("img");
-                                                if (imgs.size() == 0) {
-                                                    if (dataContent.childNodes().size() != 0) {
-                                                        for (Node node : dataContent.childNodes()) {
-                                                            String str = node.toString();
-                                                            content.append(str);
-                                                        }
-                                                    }
-                                                } else {
-                                                    content.append(imgs.get(0).attr("src"));
-                                                    content.append("@@@");
-                                                }
-                                            }
-                                            story.setContent(content.toString());
                                             story = storyRepository.save(story);
                                             storyMap.put(title, story);
                                             tryStory = false;
@@ -139,6 +126,45 @@ public class StoriesBerriesService implements IStoriesBerriesService {
         }
         Collection<Story> values = storyMap.values();
         storyRepository.save(values);
+    }
+
+    private void prepareBaseStoryData(Category category, String href, String title, String thumbnail, Story story, Document detailStoryDoc) {
+        String shortDes = detailStoryDoc.select("div.manual-excerpt").get(0).childNode(0).toString();
+        story.setUrl(href);
+        story.setName(title);
+        story.setThumbnail(thumbnail);
+        story.setShortDes(shortDes);
+        if (story.getCategories() == null) {
+            story.setCategories(new ArrayList<Category>());
+        }
+        story.getCategories().add(category);
+    }
+
+    private void prepareChapterBooks(Story story, Document detailStoryDoc) {
+        Elements elementsChapter = detailStoryDoc.select("div[itemprop=articleBody]");
+        String content = elementsChapter.get(0).childNode(0).toString();
+        story.setContent(content);
+    }
+
+    private void prepareCommonStory(Story story, Document detailStoryDoc) {
+        Elements elementByRegex = detailStoryDoc.select("div[itemprop=articleBody] p");
+
+        StringBuilder content = new StringBuilder();
+        for (Element dataContent : elementByRegex) {
+            Elements imgs = dataContent.select("img");
+            if (imgs.size() == 0) {
+                if (dataContent.childNodes().size() != 0) {
+                    for (Node node : dataContent.childNodes()) {
+                        String str = node.toString();
+                        content.append(str);
+                    }
+                }
+            } else {
+                content.append(imgs.get(0).attr("src"));
+                content.append("@@@");
+            }
+        }
+        story.setContent(content.toString());
     }
 
     @Override
